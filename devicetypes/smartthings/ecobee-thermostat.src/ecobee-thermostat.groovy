@@ -20,7 +20,6 @@ metadata {
 		capability "Actuator"
 		capability "Thermostat"
 		capability "Temperature Measurement"
-		capability "Polling"
 		capability "Sensor"
 		capability "Refresh"
 		capability "Relative Humidity Measurement"
@@ -134,9 +133,7 @@ def refresh() {
 
 void poll() {
 	log.debug "Executing 'poll' using parent SmartApp"
-
-	def results = parent.pollChild(this)
-	generateEvent(results) //parse received message from parent
+	parent.pollChild()
 }
 
 def generateEvent(Map results) {
@@ -382,12 +379,16 @@ def getDataByName(String name) {
 	state[name] ?: device.getDataValue(name)
 }
 
-def setThermostatMode(String value) {
-	log.debug "setThermostatMode({$value})"
+def setThermostatMode(String mode) {
+	log.debug "setThermostatMode($mode)"
+	mode = mode.toLowerCase()
+	switchToMode(mode)
 }
 
-def setThermostatFanMode(String value) {
-	log.debug "setThermostatFanMode({$value})"
+def setThermostatFanMode(String mode) {
+	log.debug "setThermostatFanMode($mode)"
+	mode = mode.toLowerCase()
+	switchToFanMode(mode)
 }
 
 def generateModeEvent(mode) {
@@ -395,7 +396,7 @@ def generateModeEvent(mode) {
 }
 
 def generateFanModeEvent(fanMode) {
-	sendEvent(name: "thermostatFanMode", value: fanMode, descriptionText: "$device.displayName fan is in ${mode} mode", displayed: true)
+	sendEvent(name: "thermostatFanMode", value: fanMode, descriptionText: "$device.displayName fan is in ${fanMode} mode", displayed: true)
 }
 
 def generateOperatingStateEvent(operatingState) {
@@ -493,7 +494,7 @@ def fanOn() {
 	} else {
 		log.debug "Error setting new mode."
 		def currentFanMode = device.currentState("thermostatFanMode")?.value
-		generateModeEvent(currentFanMode) // reset the tile back
+		generateFanModeEvent(currentFanMode) // reset the tile back
 	}
 }
 
@@ -514,7 +515,7 @@ def fanAuto() {
 	} else {
 		log.debug "Error setting new mode."
 		def currentFanMode = device.currentState("thermostatFanMode")?.value
-		generateModeEvent(currentFanMode) // reset the tile back
+		generateFanModeEvent(currentFanMode) // reset the tile back
 	}
 }
 
