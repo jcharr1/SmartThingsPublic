@@ -16,7 +16,7 @@
 //DEPRECATED - Using the smartsense-multi-sensor.groovy DTH for this device. Users need to be moved before deleting this DTH
 
  metadata {
- 	definition (name: "SmartSense Open/Closed Accelerometer Sensor", namespace: "smartthings", author: "SmartThings") {
+ 	definition (name: "SmartSense Open/Closed Accelerometer Sensor", namespace: "smartthings", author: "SmartThings", category: "C2") {
  		capability "Battery"
  		capability "Configuration"
  		capability "Contact Sensor"
@@ -234,7 +234,8 @@ def getTemperature(value) {
 			def minVolts = 2.1
 			def maxVolts = 3.0
 			def pct = (volts - minVolts) / (maxVolts - minVolts)
-			result.value = Math.min(100, (int) pct * 100)
+			def roundedPct = Math.round(pct * 100)
+			result.value = Math.min(100, roundedPct)
 			result.descriptionText = "${linkText} battery was ${result.value}%"
 		}
 
@@ -300,6 +301,7 @@ def getTemperature(value) {
 	}
 
 def configure() {
+	sendEvent(name: "checkInterval", value: 7200, displayed: false)
 
 	String zigbeeEui = swapEndianHex(device.hub.zigbeeEui)
 	log.debug "Configuring Reporting, IAS CIE, and Bindings."
