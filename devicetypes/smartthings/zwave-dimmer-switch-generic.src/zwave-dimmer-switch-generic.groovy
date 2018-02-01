@@ -12,7 +12,7 @@
  *
  */
 metadata {
-	definition (name: "Z-Wave Dimmer Switch Generic", namespace: "smartthings", author: "SmartThings", ocfDeviceType: "oic.d.light") {
+	definition (name: "Z-Wave Dimmer Switch Generic", namespace: "smartthings", author: "SmartThings", ocfDeviceType: "oic.d.light", runLocally: true, minHubCoreVersion: '000.019.00012', executeCommandsLocally: true) {
 		capability "Switch Level"
 		capability "Actuator"
 		capability "Health Check"
@@ -31,6 +31,13 @@ metadata {
 		fingerprint mfr:"001D", prod:"0401", model:"0334", deviceJoinName: "Leviton 600W Incandescent Dimmer"
 		fingerprint mfr:"0111", prod:"8200", model:"0200", deviceJoinName: "Remotec Technology Plug-In Dimmer"
 		fingerprint mfr:"1104", prod:"001D", model:"0501", deviceJoinName: "Leviton 1000W Incandescant Dimmer"
+		fingerprint mfr:"0039", prod:"5044", model:"3033", deviceJoinName: "Honeywell Z-Wave Plug-in Dimmer (Dual Outlet)"
+		fingerprint mfr:"0039", prod:"5044", model:"3038", deviceJoinName: "Honeywell Z-Wave Plug-in Dimmer"
+		fingerprint mfr:"0039", prod:"4944", model:"3038", deviceJoinName: "Honeywell Z-Wave In-Wall Smart Dimmer"
+		fingerprint mfr:"0039", prod:"4944", model:"3130", deviceJoinName: "Honeywell Z-Wave In-Wall Smart Toggle Dimmer"
+		fingerprint mfr:"0063", prod:"4944", model:"3034", deviceJoinName: "GE In-Wall Smart Fan Control"
+		fingerprint mfr:"0063", prod:"4944", model:"3131", deviceJoinName: "GE In-Wall Smart Fan Control"
+		fingerprint mfr:"0039", prod:"4944", model:"3131", deviceJoinName: "Honeywell Z-Wave Plus In-Wall Fan Speed Control"
 	}
 
 	simulator {
@@ -80,19 +87,29 @@ metadata {
 
 def installed(){
 // Device-Watch simply pings if no device events received for 32min(checkInterval)
-	sendEvent(name: "checkInterval", value: 2 * 15 * 60 + 2 * 60, displayed: false, data: [protocol: "zwave", hubHardwareId: device.hub.hardwareID])
+	sendEvent(name: "checkInterval", value: 2 * 15 * 60 + 2 * 60, displayed: false, data: [protocol: "zwave", hubHardwareId: device.hub.hardwareID, offlinePingable: "1"])
+	response(refresh())
 }
 
 def updated(){
 // Device-Watch simply pings if no device events received for 32min(checkInterval)
-	sendEvent(name: "checkInterval", value: 2 * 15 * 60 + 2 * 60, displayed: false, data: [protocol: "zwave", hubHardwareId: device.hub.hardwareID])
+	sendEvent(name: "checkInterval", value: 2 * 15 * 60 + 2 * 60, displayed: false, data: [protocol: "zwave", hubHardwareId: device.hub.hardwareID, offlinePingable: "1"])
+}
+
+def getCommandClassVersions() {
+	[
+		0x20: 1,  // Basic
+		0x26: 1,  // SwitchMultilevel
+		0x56: 1,  // Crc16Encap
+		0x70: 1,  // Configuration
+	]
 }
 
 def parse(String description) {
 	def result = null
 	if (description != "updated") {
 		log.debug "parse() >> zwave.parse($description)"
-		def cmd = zwave.parse(description, [0x20: 1, 0x26: 1, 0x70: 1])
+		def cmd = zwave.parse(description, commandClassVersions)
 		if (cmd) {
 			result = zwaveEvent(cmd)
 		}
@@ -157,6 +174,16 @@ def zwaveEvent(physicalgraph.zwave.commands.manufacturerspecificv2.ManufacturerS
 
 def zwaveEvent(physicalgraph.zwave.commands.switchmultilevelv1.SwitchMultilevelStopLevelChange cmd) {
 	[createEvent(name:"switch", value:"on"), response(zwave.switchMultilevelV1.switchMultilevelGet().format())]
+}
+
+def zwaveEvent(physicalgraph.zwave.commands.crc16encapv1.Crc16Encap cmd) {
+	def versions = commandClassVersions
+	def version = versions[cmd.commandClass as Integer]
+	def ccObj = version ? zwave.commandClass(cmd.commandClass, version) : zwave.commandClass(cmd.commandClass)
+	def encapsulatedCommand = ccObj?.command(cmd.command)?.parse(cmd.data)
+	if (encapsulatedCommand) {
+		zwaveEvent(encapsulatedCommand)
+	}
 }
 
 def zwaveEvent(physicalgraph.zwave.Command cmd) {
